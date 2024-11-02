@@ -2,6 +2,17 @@
  *                         Bater-IA SW V1 Prototype ino IDE. by: Angel Habid Navarro                *
  *                                                 20/10/2024                                       *
  ****************************************************************************************************/
+
+
+/*
+LIST OF PENDING FUNCTIONALITIES:
+- Develop the functionality that allows the measurement of the cells during the discharge process.
+- Develop the process to determine if a cell is fully charged/discharged.
+- Develop the environment in which the GUI interacts with the basic software (serial menu with numerical options).
+
+*/
+
+
 /************************************************************
  *                    Headers & libraries                   *
  ************************************************************/
@@ -74,7 +85,7 @@ void discharge_Bat3(void);
 void Battery_reinit(void);
 float ADC_readig(int);
 float volt_convertion(volatile float);
-void Data_generator(volatile int ,volatile int);
+void Data_generator(void);
 
 /************************************************************
  *                    Arduino Setup function                *
@@ -89,17 +100,16 @@ void setup()
  ************************************************************/
 void loop() 
 {
-  switch (menu)
-  {
-  case 1:
-    charging_sub_routine();
-    break;
-  
-  default:
-    Serial.print("Error");
-    return 55;
-    break;
-  }
+  // switch (menu)
+  // {
+  // case 1:
+  //   charging_sub_routine();
+  //   break;
+  // default:
+  //   Serial.print("Error");
+  //   return 55;
+  //   break;
+  // }
 // Describe the voltage curve
 //  Voltage_adj(Duty);
 //  Duty = Duty + 5;
@@ -109,15 +119,11 @@ void loop()
 //  }
 //  num_sample++;
 //  delay(1000);
-  //Charger();
-  //delay(10000);
-  while (1)
-  {
-   Chargin_Status = Charger();
-   Battery_V_Status =  ADC_measure();
-   Data_generator(Battery_V_Status,)
-    delay(4000);
-  }
+//Charger();
+//delay(10000);
+
+charging_sub_routine();
+  
 }
 /***************************************************************
  *                    Functions deploiment                     *
@@ -229,9 +235,29 @@ void Voltage_adj(int DutyC)
   analogWrite(GPIO_Pin_PWM2,DutyC);
 }
 
+void Battery_reinit(void)
+{
+  digitalWrite(K1,HIGH);
+  digitalWrite(K2,HIGH);
+  digitalWrite(K3,HIGH);
+  digitalWrite(K4,HIGH);
+  digitalWrite(K5,HIGH);
+  digitalWrite(K6,HIGH);
+  digitalWrite(K7,HIGH);
+  digitalWrite(K8,HIGH);
+  digitalWrite(K9,HIGH);
+  digitalWrite(K10,HIGH);
+}
+
 int Charger(void)
 {
-  //charger battery sub-rutine.
+  /*
+  Function to setup the relays to charge the 3 cells in the system, open all 
+  relays and keep connected the relay K1 (to principal source of voltage) , 
+  the relay K2 (the series connection between Bat1 and Bat2) and the
+  relay K3 (this relay is the series connection between the BAT2 and BAT3), 
+  at the end, BAT3 is connected directely to grownd .
+  */
   //disconect all the relays.
   digitalWrite(K4,HIGH);
   digitalWrite(K5,HIGH);
@@ -241,17 +267,24 @@ int Charger(void)
   digitalWrite(K9,HIGH);
   digitalWrite(K1,LOW);//turn on K1 to charge the Batteries.
   delay(500);
-  return 1;
+  return 1;//Return 1 to inform that the relays array was alrready set.
 }
 
 int ADC_measure(void)
 {
-  //Input voltage measurement:
+  /*
+  This function made a reading of the input voltage , current , power , and load voltage...
+  After that, setup the relays to disconnect the batteries of the main source of voltage and 
+  perform a measurement of the voltage level (this going to be called sample), this process
+  must be done every 30 seconds.
+  */ 
+
+  //Input voltage measurement and save it in a global variable:
   shuntVoltage_mV = ina226.getShuntVoltage_mV();
   busVoltage_V = ina226.getBusVoltage_V();
   current_mA = ina226.getCurrent_mA();
   power_mW = ina226.getBusPower();
-  checkForI2cErrors();
+  checkForI2cErrors();// validate the I2C comunication.
 
   //Calculate the voltage in the load
   loadVoltage_V  = busVoltage_V + (shuntVoltage_mV/1000);
@@ -272,13 +305,13 @@ int ADC_measure(void)
   //Battery 3 measurement sub-rutine:
   digitalWrite(K9,HIGH);//Be sure that K9 is unable.
   digitalWrite(K6,LOW);// Connect the ADC CH3 to the BT3.
-  delay(1000);
-  //Doing the measurements:
+  delay(500);
+  //Doing the measurements of each battery:
   ADC_Bat2_Meas = ADC_readig(pin_A1);
   ADC_Bat3_Meas = ADC_readig(pin_A2);
   ADC_Bat1_Meas = ADC_readig(pin_A0);
   delay(500);
-  return 1;
+  return 1;//return 1 to inform that the measurement was done.
 }
 
 void discharge_Bat1(void)
@@ -290,10 +323,6 @@ void discharge_Bat1(void)
   digitalWrite(K7,LOW);//Be sure that K7 is enable.
   digitalWrite(K4,LOW);// Connect the ADC CH0 to the BT1 to measure the discharge.
   delay(100);
-//  ADC_Bat_Meas = ADC_readig(pin_A0);
-//  Serial.println(volt_convertion(ADC_Bat_Meas));
-  ADC_Bat_Meas = analogRead(A0);
-  Serial.println(volt_convertion(ADC_Bat_Meas));
 }
 
 void discharge_Bat2(void)
@@ -306,9 +335,6 @@ void discharge_Bat2(void)
   digitalWrite(K5,LOW);//Connect the ADC CH0 to the BT1 to measure the discharge.
   digitalWrite(K8,LOW);//Connect the resistors net to the Bat2.
   delay(100);
-//  ADC_Bat_Meas = ADC_readig(pin_A1);
-  ADC_Bat_Meas = analogRead(A1);
-  Serial.println(volt_convertion(ADC_Bat_Meas));
 }
 
 void discharge_Bat3(void)
@@ -320,23 +346,6 @@ void discharge_Bat3(void)
   digitalWrite(K9,LOW);//Connect the resistors net to the Bat2.
   digitalWrite(K6,LOW);//Connect the ADC CH0 to the BT1 to measure the discharge.
   delay(100);
-//  ADC_Bat_Meas = ADC_readig(pin_A2);
-ADC_Bat_Meas = analogRead(A2);
-  Serial.println(volt_convertion(ADC_Bat_Meas));
-}
-
-void Battery_reinit(void)
-{
-  digitalWrite(K1,HIGH);
-  digitalWrite(K2,HIGH);
-  digitalWrite(K3,HIGH);
-  digitalWrite(K4,HIGH);
-  digitalWrite(K5,HIGH);
-  digitalWrite(K6,HIGH);
-  digitalWrite(K7,HIGH);
-  digitalWrite(K8,HIGH);
-  digitalWrite(K9,HIGH);
-  digitalWrite(K10,HIGH);
 }
 
 float ADC_readig(int ADC_CH)
@@ -367,48 +376,46 @@ float volt_convertion(volatile float digital_reading)
   return voltage;
 }
 
-void Data_generator(volatile int ADC_status ,volatile int Charging_status)
+void Data_generator(void)
 {
-  if (Charging_status = 1)
-  {
-    /* code */
-  }
+  /*
+  The data generator order all the information to be printed,
+  the finality of this function is print by the serial port the information in the
+  better way to create a CSV from the serial bus.
+  */
 
-  if (ADC_status = 1)
-  {
-    Serial.print("");Serial.print("");Serial.print("");
-  Serial.println();
-  Serial.print(volt_convertion(ADC_Bat1_Meas));Serial.print(" ");
-  Serial.print(volt_convertion(ADC_Bat2_Meas));Serial.print(" ");
-  Serial.print(volt_convertion(ADC_Bat3_Meas));
-  Serial.println();
-  }
-  
-   while(enable1 == true)
+  //Print the headers of the CSV file.
+  while(enable1 == true)//Be sure that the code inside of the while  only will be executed once.
   {
     num_sample = 1;
     delay(3000);
-    Serial.print("Sample [#]:,Bus Voltage [V]:,Load Voltage [V]:,Current[mA]:,Bus Power [mW]:,Bat 1:,Bat 2:,Bat 3:");
+    Serial.print("Sample [#]:,Bus Voltage [V]:,Load Voltage [V]:,Current[mA]:,Bus Power [mW]:,Voltage Bat 1:,Voltage Bat 2:,Voltage Bat 3:");
     Serial.println();
     enable1 = false;
   }
 
   //Print the values in a CSV, "Comma-Separated Values".
   Serial.print(num_sample);Serial.print(",");
-  Serial.print(busVoltage_V);Serial.print(",");Serial.print(loadVoltage_V);Serial.print(",");
-  Serial.print(current_mA);Serial.print(",");Serial.print(power_mW);
+  Serial.print(busVoltage_V);Serial.print(",");
+  Serial.print(loadVoltage_V);Serial.print(",");
+  Serial.print(current_mA);Serial.print(",");
+  Serial.print(power_mW);Serial.print(",");
+  Serial.print(volt_convertion(ADC_Bat1_Meas));Serial.print(",");
+  Serial.print(volt_convertion(ADC_Bat2_Meas));Serial.print(",");
+  Serial.print(volt_convertion(ADC_Bat3_Meas));Serial.print(",");
   Serial.println();
-  
+  num_sample++;
 }
 
 void charging_sub_routine(void)
 {
-  while (/* condition */)
+  //Pendiente desarrollar la subrutina de carga , en la que se timea la carga y medicion de las celdas.
+  Chargin_Status = Charger();
+
+  while (1)//pendiente ajustar el timing y eliminar el bucle infinito.
   {
-    Charger();
-    delay(30000);
-    ADC_measure();
+   Battery_V_Status =  ADC_measure();
+   Data_generator(Battery_V_Status,)
+    delay(4000);// the real time must be longer, but to testing and debug will be set in 4 sec.
   }
-  
-  
 }
