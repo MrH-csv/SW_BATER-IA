@@ -77,7 +77,7 @@ void I2C_init(void);
 void ADC_int(void);
 void checkForI2cErrors(void);
 void Voltage_adj(int);
-void Charger(void);
+int Charger(void);
 int ADC_measure(void);
 void discharge_Bat1(void);
 void discharge_Bat2(void);
@@ -415,7 +415,7 @@ void charging_sub_routine(void)
   while (1)//pendiente ajustar el timing y eliminar el bucle infinito.
   {
    Battery_V_Status =  ADC_measure();
-   Data_generator(Battery_V_Status,)
+   Data_generator();
     delay(4000);// the real time must be longer, but to testing and debug will be set in 4 sec.
   }
 }
