@@ -53,7 +53,7 @@ INA226_V1 ina226 = INA226_V1(I2C_ADDRESS);
 /************************************************************
  *                       Global Variables                   *
  ************************************************************/
-extern unsigned int Duty = 0;
+extern unsigned int Duty = 5;
 extern bool enable1 = true;
 extern int num_sample = 0;
 volatile float ADC_Bat1_Meas = 0;
@@ -86,6 +86,7 @@ void Battery_reinit(void);
 float ADC_readig(int);
 float volt_convertion(volatile float);
 void Data_generator(void);
+int Load_balancer(void);
 
 /************************************************************
  *                    Arduino Setup function                *
@@ -93,37 +94,14 @@ void Data_generator(void);
 void setup() 
 {
   MCU_init();
-  delay(3000);
+  delay(5000);// add time (5 sec) to be able of configure the csv maker.
 }
 /************************************************************
  *           Arduino loop    (similar to main loop)         *
  ************************************************************/
 void loop() 
 {
-  // switch (menu)
-  // {
-  // case 1:
-  //   charging_sub_routine();
-  //   break;
-  // default:
-  //   Serial.print("Error");
-  //   return 55;
-  //   break;
-  // }
-// Describe the voltage curve
-//  Voltage_adj(Duty);
-//  Duty = Duty + 5;
-//  if(Duty >= 255)
-//  {
-//    Duty = 0;
-//  }
-//  num_sample++;
-//  delay(1000);
-//Charger();
-//delay(10000);
-
-charging_sub_routine();
-  
+  charging_sub_routine();// apply a tipical charge rutine.
 }
 /***************************************************************
  *                    Functions deploiment                     *
@@ -237,6 +215,7 @@ void Voltage_adj(int DutyC)
 
 void Battery_reinit(void)
 {
+  delay(100);
   digitalWrite(K1,HIGH);
   digitalWrite(K2,HIGH);
   digitalWrite(K3,HIGH);
@@ -247,6 +226,7 @@ void Battery_reinit(void)
   digitalWrite(K8,HIGH);
   digitalWrite(K9,HIGH);
   digitalWrite(K10,HIGH);
+  delay(100);
 }
 
 int Charger(void)
@@ -280,6 +260,7 @@ int ADC_measure(void)
   */ 
 
   //Input voltage measurement and save it in a global variable:
+  delay(500);//wait until the relays are set.
   shuntVoltage_mV = ina226.getShuntVoltage_mV();
   busVoltage_V = ina226.getBusVoltage_V();
   current_mA = ina226.getCurrent_mA();
@@ -290,20 +271,20 @@ int ADC_measure(void)
   loadVoltage_V  = busVoltage_V + (shuntVoltage_mV/1000);
 
   //Set the relays in measure mode:
-  delay(500);
+  delay(100);
   //Battery 1 measurement sub-rutine:
   digitalWrite(K1,HIGH);//Disconnect the Batteries.
   digitalWrite(K2,LOW);//Connect the negative to MCU grownd.
-  digitalWrite(K7,HIGH);//Be sure that K7 is unable.
+  digitalWrite(K7,HIGH);//Be sure that K7 is disable.
   digitalWrite(K4,LOW);// Connect the ADC CH0 to the BT1.
-  delay(500);
+  delay(100);
   //Battery 2 measurement sub-rutine:
   digitalWrite(K3,LOW);//Connect the negative to MCU grownd.
-  digitalWrite(K8,HIGH);//Be sure that K8 is unable.
+  digitalWrite(K8,HIGH);//Be sure that K8 is disable.
   digitalWrite(K5,LOW);// Connect the ADC CH1 to the BT2.
-  delay(500);
+  delay(100);
   //Battery 3 measurement sub-rutine:
-  digitalWrite(K9,HIGH);//Be sure that K9 is unable.
+  digitalWrite(K9,HIGH);//Be sure that K9 is disable.
   digitalWrite(K6,LOW);// Connect the ADC CH3 to the BT3.
   delay(500);
   //Doing the measurements of each battery:
@@ -316,36 +297,36 @@ int ADC_measure(void)
 
 void discharge_Bat1(void)
 {
-  Battery_reinit();
+  // Battery_reinit();
   //Battery 1 discharge sub-rutine:
   digitalWrite(K1,HIGH);//Disconnect the Batteries.
   digitalWrite(K2,LOW);//Connect the negative to MCU grownd.
   digitalWrite(K7,LOW);//Be sure that K7 is enable.
   digitalWrite(K4,LOW);// Connect the ADC CH0 to the BT1 to measure the discharge.
-  delay(100);
+  delay(5000);
 }
 
 void discharge_Bat2(void)
 {
-  Battery_reinit();
+  // Battery_reinit();
   //Battery 2 discharge sub-rutine:
   digitalWrite(K1,HIGH);//Disconnect the Batteries.
   digitalWrite(K2,LOW);//Disconnect the positive of bat 2.
   digitalWrite(K3,LOW);//Connect the negative to MCU grownd.
   digitalWrite(K5,LOW);//Connect the ADC CH0 to the BT1 to measure the discharge.
   digitalWrite(K8,LOW);//Connect the resistors net to the Bat2.
-  delay(100);
+  delay(5000);
 }
 
 void discharge_Bat3(void)
 {
-  Battery_reinit();
+  // Battery_reinit();
   //Battery 3 discharge sub-rutine:
   digitalWrite(K1,HIGH);//Disconnect the Batteries.
   digitalWrite(K3,LOW);//Disconnect the positive of bat 3.
   digitalWrite(K9,LOW);//Connect the resistors net to the Bat2.
   digitalWrite(K6,LOW);//Connect the ADC CH0 to the BT1 to measure the discharge.
-  delay(100);
+  delay(5000);
 }
 
 float ADC_readig(int ADC_CH)
@@ -366,13 +347,9 @@ float volt_convertion(volatile float digital_reading)
   {
     num_base *= 2;
   }
-  
   //Serial.println(num_base);// only to debug (to now if the resolution is correct).
-
   resolution = (Vmax_ADC)/((num_base)-1);// getting the voltage resolution using (Vref)/((2^n)-1).
-
   voltage = (resolution)*(digital_reading);// getting the voltage measured.
-
   return voltage;
 }
 
@@ -409,13 +386,63 @@ void Data_generator(void)
 
 void charging_sub_routine(void)
 {
-  //Pendiente desarrollar la subrutina de carga , en la que se timea la carga y medicion de las celdas.
+  //Pendiente mejorar la subrutina de carga , en la que se timea la carga y medicion de las celdas y se aplcia una curva de carga adecuada.
+  Load_balancer();
+  // Describe the voltage curve
+  Voltage_adj(Duty);
+  //  Duty = Duty + 5;
+  //  if(Duty >= 255)
+  //  {
+  //    Duty = 0;
+  //  }
   Chargin_Status = Charger();
+  delay(30000);// 30 sec of charging.
+  Battery_V_Status =  ADC_measure();
+  Data_generator();//print the csv file.
+  delay(100);
+}
 
-  while (1)//pendiente ajustar el timing y eliminar el bucle infinito.
+int Load_balancer(void)
+{
+  ADC_measure();// take measurements of the loads.
+  Battery_reinit();//reset the relays to open
+  while (ADC_Bat1_Meas != ADC_Bat2_Meas && ADC_Bat2_Meas!= ADC_Bat3_Meas)
   {
-   Battery_V_Status =  ADC_measure();
-   Data_generator();
-    delay(4000);// the real time must be longer, but to testing and debug will be set in 4 sec.
+    while (ADC_Bat1_Meas > ADC_Bat2_Meas)
+    {
+      discharge_Bat1();
+      ADC_measure();
+    }
+
+    while (ADC_Bat1_Meas > ADC_Bat3_Meas)
+    {
+      discharge_Bat1();
+      ADC_measure();
+    }
+
+    while (ADC_Bat2_Meas > ADC_Bat1_Meas)
+    {
+      discharge_Bat2();
+      ADC_measure();
+    }
+
+    while (ADC_Bat2_Meas > ADC_Bat3_Meas)
+    {
+      discharge_Bat2();
+      ADC_measure();
+    }
+
+    while (ADC_Bat3_Meas > ADC_Bat1_Meas)
+    {
+      discharge_Bat3();
+      ADC_measure();
+    }
+
+    while (ADC_Bat3_Meas > ADC_Bat2Meas)
+    {
+      discharge_Bat3();
+      ADC_measure();
+    }
+    Serial.print("Balancing the loads...\n");
   }
 }
