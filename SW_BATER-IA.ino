@@ -101,6 +101,7 @@ void setup()
  ************************************************************/
 void loop() 
 {
+  Load_balancer(); // integrar a la subrrutina de carga para que solo se ejecute 1 vez.
   charging_sub_routine();// apply a tipical charge rutine.
 }
 /***************************************************************
@@ -303,7 +304,7 @@ void discharge_Bat1(void)
   digitalWrite(K2,LOW);//Connect the negative to MCU grownd.
   digitalWrite(K7,LOW);//Be sure that K7 is enable.
   digitalWrite(K4,LOW);// Connect the ADC CH0 to the BT1 to measure the discharge.
-  delay(5000);
+  delay(15000);
 }
 
 void discharge_Bat2(void)
@@ -315,7 +316,7 @@ void discharge_Bat2(void)
   digitalWrite(K3,LOW);//Connect the negative to MCU grownd.
   digitalWrite(K5,LOW);//Connect the ADC CH0 to the BT1 to measure the discharge.
   digitalWrite(K8,LOW);//Connect the resistors net to the Bat2.
-  delay(5000);
+  delay(15000);
 }
 
 void discharge_Bat3(void)
@@ -326,7 +327,7 @@ void discharge_Bat3(void)
   digitalWrite(K3,LOW);//Disconnect the positive of bat 3.
   digitalWrite(K9,LOW);//Connect the resistors net to the Bat2.
   digitalWrite(K6,LOW);//Connect the ADC CH0 to the BT1 to measure the discharge.
-  delay(5000);
+  delay(15000);
 }
 
 float ADC_readig(int ADC_CH)
@@ -387,7 +388,7 @@ void Data_generator(void)
 void charging_sub_routine(void)
 {
   //Pendiente mejorar la subrutina de carga , en la que se timea la carga y medicion de las celdas y se aplcia una curva de carga adecuada.
-  Load_balancer();
+  
   // Describe the voltage curve
   Voltage_adj(Duty);
   //  Duty = Duty + 5;
@@ -408,41 +409,66 @@ int Load_balancer(void)
   Battery_reinit();//reset the relays to open
   while (ADC_Bat1_Meas != ADC_Bat2_Meas && ADC_Bat2_Meas!= ADC_Bat3_Meas)
   {
+    Serial.print("Balancing the loads...\n");
+    ADC_measure();
     while (ADC_Bat1_Meas > ADC_Bat2_Meas)
     {
+      Serial.print("Balancing the load B1\n");
       discharge_Bat1();
       ADC_measure();
+      Serial.print(volt_convertion(ADC_Bat1_Meas));Serial.print(",");
+      Serial.print(volt_convertion(ADC_Bat2_Meas));Serial.print(",");
+      Serial.print(volt_convertion(ADC_Bat3_Meas));Serial.print("\n");
     }
 
     while (ADC_Bat1_Meas > ADC_Bat3_Meas)
     {
+      Serial.print("Balancing the load B1\n");
       discharge_Bat1();
       ADC_measure();
+      Serial.print(volt_convertion(ADC_Bat1_Meas));Serial.print(",");
+      Serial.print(volt_convertion(ADC_Bat2_Meas));Serial.print(",");
+      Serial.print(volt_convertion(ADC_Bat3_Meas));Serial.print("\n");
     }
 
     while (ADC_Bat2_Meas > ADC_Bat1_Meas)
     {
+      Serial.print("Balancing the load B2\n");
       discharge_Bat2();
       ADC_measure();
+      Serial.print(volt_convertion(ADC_Bat1_Meas));Serial.print(",");
+      Serial.print(volt_convertion(ADC_Bat2_Meas));Serial.print(",");
+      Serial.print(volt_convertion(ADC_Bat3_Meas));Serial.print("\n");
     }
 
     while (ADC_Bat2_Meas > ADC_Bat3_Meas)
     {
+      Serial.print("Balancing the load B2\n");
       discharge_Bat2();
       ADC_measure();
+      Serial.print(volt_convertion(ADC_Bat1_Meas));Serial.print(",");
+      Serial.print(volt_convertion(ADC_Bat2_Meas));Serial.print(",");
+      Serial.print(volt_convertion(ADC_Bat3_Meas));Serial.print("\n");
     }
 
     while (ADC_Bat3_Meas > ADC_Bat1_Meas)
     {
+      Serial.print("Balancing the load B3\n");
       discharge_Bat3();
       ADC_measure();
+      Serial.print(volt_convertion(ADC_Bat1_Meas));Serial.print(",");
+      Serial.print(volt_convertion(ADC_Bat2_Meas));Serial.print(",");
+      Serial.print(volt_convertion(ADC_Bat3_Meas));Serial.print("\n");
     }
 
-    while (ADC_Bat3_Meas > ADC_Bat2Meas)
+    while (ADC_Bat3_Meas > ADC_Bat2_Meas)
     {
+      Serial.print("Balancing the load B3\n");
       discharge_Bat3();
       ADC_measure();
+      Serial.print(volt_convertion(ADC_Bat1_Meas));Serial.print(",");
+      Serial.print(volt_convertion(ADC_Bat2_Meas));Serial.print(",");
+      Serial.print(volt_convertion(ADC_Bat3_Meas));Serial.print("\n");
     }
-    Serial.print("Balancing the loads...\n");
   }
 }
