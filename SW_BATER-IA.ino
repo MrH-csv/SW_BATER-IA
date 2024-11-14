@@ -3,7 +3,6 @@
  *                                                 20/10/2024                                       *
  ****************************************************************************************************/
 
-
 /*
 LIST OF PENDING FUNCTIONALITIES:
 - Develop the functionality that allows the measurement of the cells during the discharge process.
@@ -12,81 +11,14 @@ LIST OF PENDING FUNCTIONALITIES:
 
 */
 
-
 /************************************************************
  *                    Headers & libraries                   *
  ************************************************************/
 #include <Wire.h>
 #include "INA226_V1_AHNM.h"
-/************************************************************
- *                        Macro defines                     *
- ************************************************************/
-//I2C Address:
-#define I2C_ADDRESS 0x40
-//PWM Voltage control pin:
-#define GPIO_Pin_PWM2  2
-//GPIO to Relay control pins:
-#define K1 22
-#define K2 24
-#define K3 26
-#define K4 28
-#define K5 30
-#define K6 32
-#define K7 34
-#define K8 36
-#define K9 38
-#define K10 40 
-// Relation between ADC channels and Analog pins in the board:
-#define pin_A0 7
-#define pin_A1 6
-#define pin_A2 5
-//ADC resolution:
-#define Res_ADC 12// #define Res_ADC 10
-//ADC Vref:
-#define Vmax_ADC 3.3
-
-/************************************************************
- *                        Constructors                      *
- ************************************************************/
-INA226_V1 ina226 = INA226_V1(I2C_ADDRESS);
-
-/************************************************************
- *                       Global Variables                   *
- ************************************************************/
-extern unsigned int Duty = 5;
-extern bool enable1 = true;
-extern int num_sample = 0;
-volatile float ADC_Bat1_Meas = 0;
-volatile float ADC_Bat2_Meas = 0;
-volatile float ADC_Bat3_Meas = 0;
-volatile int Battery_V_Status = 0; // 0 = if the Battery is not being measured.
-volatile int Chargin_Status = 0; // 0 = if the Battery array is not charging
-volatile float loadVoltage_V = 0.0;
-volatile float busVoltage_V = 0.0;
-volatile float current_mA = 0.0;
-volatile float power_mW = 0.0; 
-volatile float shuntVoltage_mV = 0.0;
-volatile float menu = 0;
-/************************************************************
- *                    Function Prototypes                   *
- ************************************************************/
-void MCU_init(void);
-void serial_init(void);
-void GPIO_init(void);
-void I2C_init(void);
-void ADC_int(void);
-void checkForI2cErrors(void);
-void Voltage_adj(int);
-int Charger(void);
-int ADC_measure(void);
-void discharge_Bat1(void);
-void discharge_Bat2(void);
-void discharge_Bat3(void);
-void Battery_reinit(void);
-float ADC_readig(int);
-float volt_convertion(volatile float);
-void Data_generator(void);
-int Load_balancer(void);
+#include "SW_BATER-IA.h"
+#include "PWM_CTRL.h"
+#include "ADC_CFG.h"
 
 /************************************************************
  *                    Arduino Setup function                *
@@ -104,6 +36,7 @@ void loop()
   Load_balancer(); // integrar a la subrrutina de carga para que solo se ejecute 1 vez.
   charging_sub_routine();// apply a tipical charge rutine.
 }
+
 /***************************************************************
  *                    Functions deploiment                     *
  ***************************************************************/
@@ -113,6 +46,7 @@ void MCU_init(void)
   GPIO_init();
   I2C_init();
   ADC_int();
+  PWM_init();
 }
 
 void serial_init(void)
@@ -123,8 +57,6 @@ void serial_init(void)
 
 void GPIO_init(void)
 {
-  /*PWM Outputs*/
-  pinMode(GPIO_Pin_PWM2, OUTPUT);// PWM2 As output.
   /*relays*/
   /*Set the GPIO as an output*/
   pinMode(K1, OUTPUT);
@@ -136,7 +68,7 @@ void GPIO_init(void)
   pinMode(K7, OUTPUT);
   pinMode(K8, OUTPUT);
   pinMode(K9, OUTPUT);
-  pinMode(K10, OUTPUT);
+
 
   /*initialization Relay GPIOS*/
   digitalWrite(K1,HIGH);
@@ -148,7 +80,7 @@ void GPIO_init(void)
   digitalWrite(K7,HIGH);
   digitalWrite(K8,HIGH);
   digitalWrite(K9,HIGH);
-  digitalWrite(K10,HIGH);
+
 }
 
 void I2C_init(void)
@@ -162,15 +94,6 @@ void I2C_init(void)
   ina226.setAverage(AVERAGE_4);
   ina226.setCorrectionFactor(0.898);
   ina226.waitUntilConversionCompleted(); //avoid that the first data might be zero.
-}
-
-void ADC_int(void)
-{
- analogReadResolution(Res_ADC);
- ADC->ADC_MR |= 0x80; // these lines set free running mode on ADC module.
- ADC->ADC_CR = 2; // Starts the ADC module in the SAM3X.
- ADC->ADC_CHER = 0xE0; // this is (1<<7) [pin A0] | (1<<6) [pin A1] | (1<<5) [pin A2] for ADC CH5 , CH6 & CH7.
- ADC->ADC_CHDR = 0x1F; // Disable all the channels that does not gona be used. 
 }
 
 void checkForI2cErrors(void)
@@ -207,13 +130,6 @@ void checkForI2cErrors(void)
   }
 }
 
-void Voltage_adj(int DutyC)
-{
-  //This function perform the adjustement of the PWM signal that controlls the input voltage
-  //During the charge stage.
-  analogWrite(GPIO_Pin_PWM2,DutyC);
-}
-
 void Battery_reinit(void)
 {
   delay(100);
@@ -226,7 +142,6 @@ void Battery_reinit(void)
   digitalWrite(K7,HIGH);
   digitalWrite(K8,HIGH);
   digitalWrite(K9,HIGH);
-  digitalWrite(K10,HIGH);
   delay(100);
 }
 
@@ -328,30 +243,6 @@ void discharge_Bat3(void)
   digitalWrite(K9,LOW);//Connect the resistors net to the Bat2.
   digitalWrite(K6,LOW);//Connect the ADC CH0 to the BT1 to measure the discharge.
   delay(15000);
-}
-
-float ADC_readig(int ADC_CH)
-{
-  int meas; 
-  while((ADC->ADC_ISR & 0xE0)!=0xE0);// wait for two conversions (pin A0[7]  and A1[6])
-  meas=ADC->ADC_CDR[ADC_CH];              // read data on ADC Chanel data register.
-  return meas; 
-}
-
-float volt_convertion(volatile float digital_reading)
-{
-  float voltage = 0;
-  float resolution = 0;
-  int num_base = 2;
-
-  for (int i = 1; i < Res_ADC; i++)// Reach the resolution number in samples.
-  {
-    num_base *= 2;
-  }
-  //Serial.println(num_base);// only to debug (to now if the resolution is correct).
-  resolution = (Vmax_ADC)/((num_base)-1);// getting the voltage resolution using (Vref)/((2^n)-1).
-  voltage = (resolution)*(digital_reading);// getting the voltage measured.
-  return voltage;
 }
 
 void Data_generator(void)
