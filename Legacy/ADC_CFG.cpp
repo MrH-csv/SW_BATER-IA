@@ -1,5 +1,5 @@
 #include "Arduino.h"
-#include "ADC_CFG.h"
+#include "ADC_CFG_V1.h"
 
 void ADC_int(void)
 {
